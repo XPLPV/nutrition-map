@@ -1,0 +1,308 @@
+<!DOCTYPE html> 
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nutrition Map</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #F5F0F5;
+      margin: 60px 60px;
+    }
+    h1 {
+      margin-bottom: 40px;
+    }
+    #controls {
+      margin-bottom: 25px;
+    }
+    .filter-btn {
+      padding: 12px 25px;
+      font-size: 16px;
+      margin: 0 5px;
+      cursor: pointer;
+      border: none;
+      outline: none;
+      border-radius: 5px;
+      background: #fff;
+      font-weight: 600;
+    }
+    .filter-btn.active {
+      background: #4CAF50;
+      color: white;
+    }
+    svg {
+      display: block;
+      margin: 0 auto;
+      background: #F5F0F5; /* фон svg */
+    }
+    .tooltip {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+      font-size: 14px;
+      pointer-events: none;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: opacity 0.2s;
+      max-width: 200px;
+      text-align: left;
+    }
+    #legend div {
+      margin: 2px 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+    #legend {
+      max-width: 400px;
+      margin: 20px auto 0;
+      text-align: center;
+      font-size: 16px;
+      line-height: 1.3;
+      color: #555;
+    }
+    #legend .macros {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    #legend span.color-box {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Nutrition Map</h1>
+
+<div id="controls">
+  <button class="filter-btn active" data-category="all">Все</button>
+  <button class="filter-btn" data-category="fruit">Фрукты</button>
+  <button class="filter-btn" data-category="vegetable">Овощи</button>
+</div>
+
+<svg width="1400" height="800"></svg>
+
+<div id="legend">
+  <div class="macros">
+    <div><span class="color-box" style="background:red;"></span> Жиры</div>
+    <div><span class="color-box" style="background:green;"></span> Углеводы</div>
+    <div><span class="color-box" style="background:blue;"></span> Белки</div>
+  </div>
+  <div><strong>Размер круга:</strong> калорийность</div>
+  <div><strong>Ось X:</strong> сахар (г)</div>
+  <div><strong>Ось Y:</strong> клетчатка (г)</div>
+</div>
+
+<div class="tooltip"></div>
+
+<script>
+const data = [
+  { name: "Яблоко", kcal: 52, b: 0.3, j: 0.2, u: 14, fiber: 2.4, sugar: 10.4, category: "fruit" },
+  { name: "Банан", kcal: 89, b: 1.1, j: 0.3, u: 23, fiber: 2.6, sugar: 12.23, category: "fruit" },
+  { name: "Морковь", kcal: 41, b: 0.9, j: 0.2, u: 10, fiber: 2.8, sugar: 4.74, category: "vegetable" },
+  { name: "Авокадо", kcal: 160, b: 2, j: 15, u: 9, fiber: 7, sugar: 0.66, category: "fruit" },
+  { name: "Киви", kcal: 61, b: 1.1, j: 0.5, u: 15, fiber: 3, sugar: 8.99, category: "fruit" },
+  { name: "Груша", kcal: 57, b: 0.4, j: 0.1, u: 15, fiber: 3.1, sugar: 9.75, category: "fruit" },
+  { name: "Огурец", kcal: 16, b: 0.7, j: 0.1, u: 3.6, fiber: 0.5, sugar: 1.67, category: "vegetable" },
+  { name: "Томат", kcal: 18, b: 0.9, j: 0.2, u: 3.9, fiber: 1.2, sugar: 2.63, category: "vegetable" },
+  { name: "Свёкла", kcal: 43, b: 1.6, j: 0.2, u: 10, fiber: 2.8, sugar: 6.76, category: "vegetable" },
+  { name: "Брокколи", kcal: 34, b: 2.8, j: 0.4, u: 6.6, fiber: 2.6, sugar: 1.7, category: "vegetable" },
+  { name: "Капуста", kcal: 25, b: 1.3, j: 0.1, u: 6, fiber: 2.5, sugar: 3.2, category: "vegetable" },
+  { name: "Абрикос", kcal: 48, b: 1.4, j: 0.4, u: 11, fiber: 2, sugar: 9.24, category: "fruit" },
+  { name: "Апельсин", kcal: 47, b: 0.9, j: 0.1, u: 12, fiber: 2.4, sugar: 9.35, category: "fruit" },
+  { name: "Грейпфрут", kcal: 42, b: 0.8, j: 0.1, u: 11, fiber: 1.6, sugar: 6.89, category: "fruit" },
+  { name: "Виноград", kcal: 69, b: 0.6, j: 0.2, u: 18, fiber: 0.9, sugar: 15.48, category: "fruit" },
+  { name: "Ананас", kcal: 50, b: 0.5, j: 0.1, u: 13, fiber: 1.4, sugar: 9.85, category: "fruit" },
+  { name: "Черника", kcal: 57, b: 0.7, j: 0.3, u: 14, fiber: 2.4, sugar: 9.96, category: "fruit" },
+  { name: "Малина", kcal: 52, b: 1.2, j: 0.7, u: 12, fiber: 6.5, sugar: 4.42, category: "fruit" },
+  { name: "Шпинат", kcal: 23, b: 2.9, j: 0.4, u: 3.6, fiber: 2.2, sugar: 0.42, category: "vegetable" },
+  { name: "Перец", kcal: 31, b: 1, j: 0.3, u: 6, fiber: 1.7, sugar: 4.2, category: "vegetable" },
+  { name: "Картофель", kcal: 77, b: 2, j: 0.1, u: 17, fiber: 2.2, sugar: 0.82, category: "vegetable" },
+  { name: "Кукуруза", kcal: 86, b: 3.2, j: 1.2, u: 19, fiber: 2.7, sugar: 6.26, category: "vegetable" },
+  { name: "Кабачок", kcal: 17, b: 1.2, j: 0.3, u: 3.1, fiber: 1, sugar: 1.71, category: "vegetable" },
+  { name: "Тыква", kcal: 26, b: 1, j: 0.1, u: 6.5, fiber: 0.5, sugar: 2.76, category: "vegetable" },
+  { name: "Оливка", kcal: 115, b: 0.8, j: 10, u: 6.3, fiber: 3.2, sugar: 0.54, category: "fruit" }
+];
+
+const svg = d3.select("svg");
+const width = +svg.attr("width");
+const height = +svg.attr("height");
+const margin = { top: 70, right: 10, bottom: 60, left: 10 };
+const plotWidth = width - margin.left - margin.right;
+const plotHeight = height - margin.top - margin.bottom;
+
+const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+const xScale = d3.scaleLinear()
+  .domain([0, Math.ceil(d3.max(data, d => d.sugar))])
+  .range([0, plotWidth]);
+
+const yScale = d3.scaleLinear()
+  .domain([0, Math.ceil(d3.max(data, d => d.fiber))])
+  .range([plotHeight, 0]);
+
+const rScale = d3.scaleSqrt()
+  .domain([0, d3.max(data, d => d.kcal)])
+  .range([1, 25]); // уменьшен верхний предел
+
+
+const maxB = d3.max(data, d => d.b);
+const maxJ = d3.max(data, d => d.j);
+const maxU = d3.max(data, d => d.u);
+
+function getColor(d) {
+  const r = 255 * (d.j / maxJ);
+  const g = 255 * (d.u / maxU);
+  const b = 255 * (d.b / maxB);
+  return `rgb(${r},${g},${b})`;
+}
+
+const tooltip = d3.select(".tooltip");
+
+const svgMap = {
+  "Яблоко": "Nutrition/Fruits/apple.svg",
+  "Банан": "Nutrition/Fruits/banana_1.svg",
+  "Авокадо": "Nutrition/Fruits/avocado.svg",
+  "Киви": "Nutrition/Fruits/kiwi.svg",
+  "Груша": "Nutrition/Fruits/pear_1.svg",
+  "Абрикос": "Nutrition/Fruits/apricot.svg",
+  "Апельсин": "Nutrition/Fruits/orange_1.svg",
+  "Грейпфрут": "Nutrition/Fruits/grapefruit_2.svg",
+  "Виноград": "Nutrition/Fruits/grape.svg",
+  "Ананас": "Nutrition/Fruits/pineapple_1.svg",
+  "Черника": "Nutrition/Fruits/blueberry.svg",
+  "Малина": "Nutrition/Fruits/raspberry_1.svg",
+  "Оливка": "Nutrition/Fruits/olive.svg",
+  "Морковь": "Nutrition/Vegetables/carrot.svg",
+  "Огурец": "Nutrition/Vegetables/cucumber_2.svg",
+  "Томат": "Nutrition/Vegetables/tomato_1.svg",
+  "Свёкла": "Nutrition/Vegetables/beet.svg",
+  "Брокколи": "Nutrition/Vegetables/broccoli_2.svg",
+  "Капуста": "Nutrition/Vegetables/cabbage_1.svg",
+  "Шпинат": "Nutrition/Vegetables/spinach.svg",
+  "Перец": "Nutrition/Vegetables/bell_pepper.svg",
+  "Картофель": "Nutrition/Vegetables/potato.svg",
+  "Кукуруза": "Nutrition/Vegetables/corn.svg",
+  "Кабачок": "Nutrition/Vegetables/zucchini.svg",
+  "Тыква": "Nutrition/Vegetables/pumpkin.svg"
+};
+// Кэш для SVG-контуров
+const svgCache = {};
+
+// Функция загрузки всех фигур из SVG с учётом viewBox
+async function loadSVGShapes(url) {
+  if (svgCache[url]) return svgCache[url];
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, "image/svg+xml");
+    const svgTag = doc.querySelector('svg');
+    const viewBox = svgTag ? svgTag.getAttribute('viewBox') : '0 0 512 512';
+    const [minX, minY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+    const shapes = [
+      ...Array.from(doc.querySelectorAll('path')),
+      ...Array.from(doc.querySelectorAll('ellipse')),
+      ...Array.from(doc.querySelectorAll('rect')),
+      ...Array.from(doc.querySelectorAll('polygon'))
+    ];
+    svgCache[url] = { shapes, minX, minY, vbWidth, vbHeight };
+  } catch (error) {
+    console.warn('Не удалось загрузить SVG:', url, error);
+    // Кэшируем пустой результат, чтобы в отрисовке сработал fallback на круги
+    svgCache[url] = { shapes: [], minX: 0, minY: 0, vbWidth: 512, vbHeight: 50 };
+  }
+  return svgCache[url];
+}
+
+// Универсальная drawPoints
+async function drawPoints(category = "all") {
+  g.selectAll("g.food-svg").remove();
+  g.selectAll("circle").remove();
+
+  const filtered = category === "all" ? data : data.filter(d => d.category === category);
+
+  for (const d of filtered) {
+    if (svgMap[d.name]) {
+      let svgData = null;
+      try {
+        svgData = await loadSVGShapes(svgMap[d.name]);
+      } catch (e) {
+        console.warn('Ошибка при получении данных SVG для', d.name, e);
+      }
+      if (svgData && svgData.shapes.length) {
+        const r = rScale(d.kcal);
+        const scale = r / (Math.max(svgData.vbWidth, svgData.vbHeight) / 2.5);
+        const group = g.append("g")
+          .attr("class", "food-svg")
+          .attr("transform", `translate(${xScale(d.sugar)},${yScale(d.fiber)}) scale(${scale}) translate(${-svgData.minX - svgData.vbWidth/2},${-svgData.minY - svgData.vbHeight/2})`)
+          .attr("fill", getColor(d));
+        svgData.shapes.forEach(shape => {
+          const tag = shape.tagName;
+          const attrs = Array.from(shape.attributes);
+          const el = group.append(tag);
+          attrs.forEach(attr => {
+            if (!['fill', 'stroke', 'stroke-width', 'style'].includes(attr.name)) {
+              el.attr(attr.name, attr.value);
+            }
+          });
+          // Удаляем все лишние атрибуты
+          Array.from(el.node().attributes).forEach(attr => {
+            if (!['d', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'x', 'y', 'width', 'height', 'transform'].includes(attr.name)) {
+              el.node().removeAttribute(attr.name);
+            }
+          });
+          el.attr('fill', getColor(d))
+          .attr('stroke', 'none')
+          .on("mouseover", (event) => {
+            tooltip.style("opacity", 1)
+              .html(`<strong>${d.name}</strong><p style="margin:6px 0 0 0;">Сахар: ${d.sugar} г<br>Клетчатка: ${d.fiber} г<br>Калории: ${d.kcal} ккал<br>Б: ${d.b} г, Ж: ${d.j} г, У: ${d.u} г</p>`)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 40) + "px");
+          })
+          .on("mouseout", () => tooltip.style("opacity", 0));
+        });
+        continue;
+      }
+    }
+    // Если SVG нет или не загрузился — круг
+    g.append("circle")
+      .attr("class", "food")
+      .attr("cx", xScale(d.sugar))
+      .attr("cy", yScale(d.fiber))
+      .attr("r", rScale(d.kcal))
+      .attr("fill", getColor(d))
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2)
+      .on("mouseover", (event) => {
+        tooltip.style("opacity", 1)
+          .html(`<strong>${d.name}</strong><br>Сахар: ${d.sugar} г<br>Клетчатка: ${d.fiber} г<br>Калории: ${d.kcal} ккал<br>Белки: ${d.b} г, Жиры: ${d.j} г, Углеводы: ${d.u} г`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 40) + "px");
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+  }
+}
+// Фильтрация
+d3.selectAll(".filter-btn").on("click", async function() {
+  const category = this.getAttribute("data-category");
+  d3.selectAll(".filter-btn").classed("active", false);
+  d3.select(this).classed("active", true);
+  await drawPoints(category);
+});
+
+(async () => { await drawPoints(); })();
+</script>
+
+</body>
+</html>
