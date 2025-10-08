@@ -113,7 +113,7 @@ const data = [
   { name: "Киви", kcal: 61, b: 1.1, j: 0.5, u: 15, fiber: 3, sugar: 8.99, category: "fruit" },
   { name: "Груша", kcal: 57, b: 0.4, j: 0.1, u: 15, fiber: 3.1, sugar: 9.75, category: "fruit" },
   { name: "Огурец", kcal: 16, b: 0.7, j: 0.1, u: 3.6, fiber: 0.5, sugar: 1.67, category: "vegetable" },
-  { name: "Томат", kcal: 18, b: 0.9, j: 0.2, u: 3.9, fiber: 1.2, sugar: 2.63, category: "vegetable" },
+  { name: "Томат", kcal: 18, b: 0.9, j: 0.2, u: 3.9, fiber: 1.2, sugar: 2.63, category: "fruit" },
   { name: "Свёкла", kcal: 43, b: 1.6, j: 0.2, u: 10, fiber: 2.8, sugar: 6.76, category: "vegetable" },
   { name: "Брокколи", kcal: 34, b: 2.8, j: 0.4, u: 6.6, fiber: 2.6, sugar: 1.7, category: "vegetable" },
   { name: "Капуста", kcal: 25, b: 1.3, j: 0.1, u: 6, fiber: 2.5, sugar: 3.2, category: "vegetable" },
@@ -150,9 +150,43 @@ const yScale = d3.scaleLinear()
   .domain([0, Math.ceil(d3.max(data, d => d.fiber))])
   .range([plotHeight, 0]);
 
-const rScale = d3.scaleSqrt()
-  .domain([0, d3.max(data, d => d.kcal)])
-  .range([1, 25]); // уменьшен верхний предел
+// Новая шкала радиусов через площадь
+const areaScale = d3.scalePow()
+  .exponent(1.5) // меньше 1 — увеличивает разницу между маленькими значениями
+  .domain([16, 160])
+  .range([Math.PI * 10**2, Math.PI * 25**2]);
+const manualAdjustments = {
+  // 🥦 Овощи
+ "Огурец": 0.8,
+"Шпинат": 1.1,
+"Капуста":1.1,
+"Тыква": 1.25,
+"Перец": 1.2,
+"Брокколи": 1.25,
+"Морковь": 1.3,
+"Грейпфрут": 1.35,
+"Свёкла": 1.25,
+"Апельсин": 1.4,
+"Абрикос": 1.45,
+"Ананас": 1.45,
+"Малина": 1.4,
+"Яблоко": 1.45,
+"Груша": 1.65,
+"Черника": 1.5,
+"Киви": 1.6,
+"Виноград": 1.45,
+"Картофель": 1.8,
+"Кукуруза": 1.8,
+"Банан": 2.2,
+"Оливка": 2.2,
+"Авокадо": 2.2
+};
+function radius(d) {
+  const base = Math.sqrt(areaScale(d.kcal) / Math.PI);
+  const adj = manualAdjustments[d.name] || 1;
+  return base * adj;
+}
+
 
 
 const maxB = d3.max(data, d => d.b);
@@ -240,47 +274,64 @@ async function drawPoints(category = "all") {
       } catch (e) {
         console.warn('Ошибка при получении данных SVG для', d.name, e);
       }
-      if (svgData && svgData.shapes.length) {
-        const r = rScale(d.kcal);
-        const scale = r / (Math.max(svgData.vbWidth, svgData.vbHeight) / 2.5);
-        const group = g.append("g")
-          .attr("class", "food-svg")
-          .attr("transform", `translate(${xScale(d.sugar)},${yScale(d.fiber)}) scale(${scale}) translate(${-svgData.minX - svgData.vbWidth/2},${-svgData.minY - svgData.vbHeight/2})`)
-          .attr("fill", getColor(d));
-        svgData.shapes.forEach(shape => {
-          const tag = shape.tagName;
-          const attrs = Array.from(shape.attributes);
-          const el = group.append(tag);
-          attrs.forEach(attr => {
-            if (!['fill', 'stroke', 'stroke-width', 'style'].includes(attr.name)) {
-              el.attr(attr.name, attr.value);
-            }
-          });
-          // Удаляем все лишние атрибуты
-          Array.from(el.node().attributes).forEach(attr => {
-            if (!['d', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'x', 'y', 'width', 'height', 'transform'].includes(attr.name)) {
-              el.node().removeAttribute(attr.name);
-            }
-          });
-          el.attr('fill', getColor(d))
-          .attr('stroke', 'none')
-          .on("mouseover", (event) => {
-            tooltip.style("opacity", 1)
-              .html(`<strong>${d.name}</strong><p style="margin:6px 0 0 0;">Сахар: ${d.sugar} г<br>Клетчатка: ${d.fiber} г<br>Калории: ${d.kcal} ккал<br>Б: ${d.b} г, Ж: ${d.j} г, У: ${d.u} г</p>`)
-              .style("left", (event.pageX + 10) + "px")
-              .style("top", (event.pageY - 40) + "px");
-          })
-          .on("mouseout", () => tooltip.style("opacity", 0));
-        });
-        continue;
+if (svgData && svgData.shapes.length) {
+const r = radius(d);
+
+  // Создаём временный элемент, чтобы измерить реальные размеры
+  const temp = g.append("g");
+  svgData.shapes.forEach(shape => {
+    const tag = shape.tagName;
+    const attrs = Array.from(shape.attributes);
+    const el = temp.append(tag);
+    attrs.forEach(attr => el.attr(attr.name, attr.value));
+  });
+  const bbox = temp.node().getBBox();
+  temp.remove();
+
+// Считаем масштаб по площади, чтобы продолговатые SVG не выглядели меньше
+const bboxArea = bbox.width * bbox.height || 1; // защита от деления на 0
+const scale = Math.sqrt((Math.PI * Math.pow(r, 2)) / bboxArea); // множитель усиливает разницу
+
+
+
+  const group = g.append("g")
+    .attr("class", "food-svg")
+    .attr("transform", `translate(${xScale(d.sugar)},${yScale(d.fiber)}) scale(${scale}) translate(${-bbox.x - bbox.width/2},${-bbox.y - bbox.height/2})`)
+    .attr("fill", getColor(d));
+
+  svgData.shapes.forEach(shape => {
+    const tag = shape.tagName;
+    const attrs = Array.from(shape.attributes);
+    const el = group.append(tag);
+    attrs.forEach(attr => {
+      if (!['fill', 'stroke', 'stroke-width', 'style'].includes(attr.name)) {
+        el.attr(attr.name, attr.value);
       }
-    }
+    });
+    Array.from(el.node().attributes).forEach(attr => {
+      if (!['d', 'cx', 'cy', 'r', 'rx', 'ry', 'points', 'x', 'y', 'width', 'height', 'transform'].includes(attr.name)) {
+        el.node().removeAttribute(attr.name);
+      }
+    });
+    el.attr('fill', getColor(d))
+      .attr('stroke', 'none')
+      .on("mouseover", (event) => {
+        tooltip.style("opacity", 1)
+          .html(`<strong>${d.name}</strong><p style="margin:6px 0 0 0;">Сахар: ${d.sugar} г<br>Клетчатка: ${d.fiber} г<br>Калории: ${d.kcal} ккал<br>Б: ${d.b} г, Ж: ${d.j} г, У: ${d.u} г</p>`)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 40) + "px");
+      })
+      .on("mouseout", () => tooltip.style("opacity", 0));
+  });
+  continue;
+}
+}
     // Если SVG нет или не загрузился — круг
     g.append("circle")
       .attr("class", "food")
       .attr("cx", xScale(d.sugar))
       .attr("cy", yScale(d.fiber))
-      .attr("r", rScale(d.kcal))
+      .attr("r", radius(d))
       .attr("fill", getColor(d))
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
