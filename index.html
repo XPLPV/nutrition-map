@@ -154,7 +154,7 @@ const yScale = d3.scaleLinear()
 const areaScale = d3.scalePow()
   .exponent(1.5) // меньше 1 — увеличивает разницу между маленькими значениями
   .domain([16, 160])
-  .range([Math.PI * 10**2, Math.PI * 25**2]);
+  .range([Math.PI * 10**2, Math.PI * 22**2]);
 const manualAdjustments = {
   // 🥦 Овощи
 "Огурец": 0.9,
@@ -178,8 +178,8 @@ const manualAdjustments = {
 "Картофель": 1.8,
 "Кукуруза": 1.8,
 "Банан": 2.2,
-"Оливка": 2.2,
-"Авокадо": 2.3
+"Оливка": 2.3,
+"Авокадо": 2.4
 };
 function radius(d) {
   const base = Math.sqrt(areaScale(d.kcal) / Math.PI);
@@ -357,6 +357,7 @@ d3.selectAll(".filter-btn").on("click", async function() {
 
 </body>
 </html>
+
 
 
 
