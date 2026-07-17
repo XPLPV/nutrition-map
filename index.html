@@ -543,12 +543,12 @@ async function drawPoints(category) {
 
     // Базовый цветной круг с тонкой обводкой — всегда виден. Если иконка
     // продукта не загрузится, он и останется единственным изображением точки.
-    group.appendChild(el("circle", {
-      r: radius,
-      fill: getColor(d),
-      stroke: "#ffffff",
-      "stroke-width": 3
-    }));
+    // Базовый цветной круг. Если иконка успешно загрузится, он останется
+    // без обводки (как в исходной версии — просто цветное изображение).
+    // Обводка добавляется только если иконку не удалось показать —
+    // тогда одноцветный круг сам становится "картинкой" точки.
+    const baseCircle = el("circle", { r: radius, fill: getColor(d) });
+    group.appendChild(baseCircle);
 
     pointsLayer.appendChild(group);
     pointGroups.push({ node: group, datum: d });
@@ -576,6 +576,11 @@ async function drawPoints(category) {
       } catch (e) {
         iconOk = false;
       }
+    }
+
+    if (!iconOk) {
+      baseCircle.setAttribute("stroke", "#ffffff");
+      baseCircle.setAttribute("stroke-width", 3);
     }
 
     group.addEventListener("mouseenter", (event) => {
