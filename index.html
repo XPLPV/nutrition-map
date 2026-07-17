@@ -35,7 +35,7 @@
     font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
     font-size: 28px;
-    margin: 0 0 6px;
+    margin: 0 0 22px;
   }
 
   #controls {
@@ -502,6 +502,34 @@ async function loadSVG(url) {
   }
 }
 
+// Перекрашивает все фигуры внутри иконки в один сплошной цвет
+// (цвет БЖУ), сохраняя силуэт продукта, но убирая его "родные" цвета.
+function tintIcon(root, color) {
+  const nodes = root.querySelectorAll("*");
+  const drawable = ["path", "circle", "rect", "ellipse", "polygon", "polyline", "line"];
+
+  [root, ...nodes].forEach(node => {
+    const tag = node.tagName ? node.tagName.toLowerCase() : "";
+    const fill = node.getAttribute("fill");
+
+    if (fill && fill !== "none") {
+      node.setAttribute("fill", color);
+    } else if (!fill && drawable.includes(tag)) {
+      node.setAttribute("fill", color);
+    }
+
+    const stroke = node.getAttribute("stroke");
+    if (stroke && stroke !== "none") {
+      node.setAttribute("stroke", color);
+    }
+
+    if (node.style) {
+      if (node.style.fill) node.style.fill = "";
+      if (node.style.stroke) node.style.stroke = "";
+    }
+  });
+}
+
 async function drawPoints(category) {
   category = category || "all";
   pointsLayer.innerHTML = "";
@@ -540,19 +568,10 @@ async function drawPoints(category) {
       class: "point-group",
       transform: `translate(${cx},${cy})`
     });
-
-    // Базовый цветной круг с тонкой обводкой — всегда виден. Если иконка
-    // продукта не загрузится, он и останется единственным изображением точки.
-    // Базовый цветной круг. Если иконка успешно загрузится, он останется
-    // без обводки (как в исходной версии — просто цветное изображение).
-    // Обводка добавляется только если иконку не удалось показать —
-    // тогда одноцветный круг сам становится "картинкой" точки.
-    const baseCircle = el("circle", { r: radius, fill: getColor(d) });
-    group.appendChild(baseCircle);
-
     pointsLayer.appendChild(group);
-    pointGroups.push({ node: group, datum: d });
 
+    // Пытаемся показать картинку продукта, перекрашенную в цвет БЖУ.
+    // Цветной круг рисуется только если картинку показать не удалось.
     const svgText = svgMap[d.name] ? await loadSVG(svgMap[d.name]) : null;
     let iconOk = false;
 
@@ -563,13 +582,14 @@ async function drawPoints(category) {
         const parsedIcon = doc.querySelector("svg");
         if (parsedIcon && !doc.querySelector("parsererror")) {
           const icon = document.importNode(parsedIcon, true);
-          const size = radius * 1.5;
+          const size = radius * 1.8;
           icon.setAttribute("width", size);
           icon.setAttribute("height", size);
           icon.setAttribute("x", -size / 2);
           icon.setAttribute("y", -size / 2);
           icon.setAttribute("preserveAspectRatio", "xMidYMid meet");
-          icon.setAttribute("style", "filter: invert(1) brightness(2); pointer-events:none;");
+          icon.setAttribute("style", "pointer-events:none;");
+          tintIcon(icon, getColor(d));
           group.appendChild(icon);
           iconOk = true;
         }
@@ -578,9 +598,18 @@ async function drawPoints(category) {
       }
     }
 
+    // Если картинку продукта не удалось показать — вместо неё рисуем
+    // цветной круг (цвет = соотношение БЖУ) с белой обводкой. Если
+    // картинка загрузилась, никакого круга под ней нет — просто сама
+    // картинка в своих цветах.
     if (!iconOk) {
-      baseCircle.setAttribute("stroke", "#ffffff");
-      baseCircle.setAttribute("stroke-width", 3);
+      const fallbackCircle = el("circle", {
+        r: radius,
+        fill: getColor(d),
+        stroke: "#ffffff",
+        "stroke-width": 3
+      });
+      group.appendChild(fallbackCircle);
     }
 
     group.addEventListener("mouseenter", (event) => {
@@ -603,6 +632,8 @@ async function drawPoints(category) {
     group.addEventListener("mouseleave", () => {
       tooltip.style.opacity = 0;
     });
+
+    pointGroups.push({ node: group, datum: d });
   }
 }
 
