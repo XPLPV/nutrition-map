@@ -592,7 +592,7 @@ async function drawPoints(category) {
   coordMap.forEach(arr => {
     if (arr.length > 1) {
       const angleStep = (2 * Math.PI) / arr.length;
-      const jitter = POINT_RADIUS * 0.55;
+      const jitter = POINT_RADIUS * 0.4;
       arr.forEach((item, i) => {
         item._jitterX = Math.cos(i * angleStep) * jitter;
         item._jitterY = Math.sin(i * angleStep) * jitter;
@@ -655,7 +655,7 @@ async function drawPoints(category) {
               const cx = bbox.x + bbox.width / 2;
               const cy = bbox.y + bbox.height / 2;
               const characteristicSize = Math.sqrt(bbox.width * bbox.height);
-              const side = characteristicSize * 1.75;
+              const side = characteristicSize * 1.3;
               icon.setAttribute(
                 "viewBox",
                 `${cx - side / 2} ${cy - side / 2} ${side} ${side}`
