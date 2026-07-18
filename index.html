@@ -488,10 +488,16 @@ g.appendChild(pointsLayer);
 // Пытаемся загрузить иконку продукта. Если она недоступна (нет файла,
 // сеть, CORS и т.п.) — просто ничего не возвращаем, и точка остаётся
 // цветным кругом без иконки.
+// Метка версии — одна на всю загрузку страницы. Добавляем её к ссылке
+// на иконку, чтобы CDN/хостинг тоже не мог отдать закэшированный файл
+// (одного "no-store" для fetch недостаточно, если кэширует сам сервер).
+const CACHE_BUST = Date.now();
+
 async function loadSVG(url) {
   if (svgCache[url] !== undefined) return svgCache[url];
   try {
-    const res = await fetch(url);
+    const bustedUrl = url + (url.includes("?") ? "&" : "?") + "v=" + CACHE_BUST;
+    const res = await fetch(bustedUrl, { cache: "no-store" });
     if (!res.ok) throw new Error("not ok");
     const text = await res.text();
     svgCache[url] = text;
