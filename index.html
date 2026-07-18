@@ -504,28 +504,26 @@ async function loadSVG(url) {
 
 // Перекрашивает все фигуры внутри иконки в один сплошной цвет
 // (цвет БЖУ), сохраняя силуэт продукта, но убирая его "родные" цвета.
+// Работает и с иконками, где заливка задана через CSS-классы, и с
+// "контурными" иконками (fill:none + только обводка) — они тоже
+// становятся сплошными, как остальные.
 function tintIcon(root, color) {
+  // Встроенные <style> внутри SVG могут перебивать наши атрибуты —
+  // проще их полностью убрать.
+  root.querySelectorAll("style").forEach(s => s.remove());
+
   const nodes = root.querySelectorAll("*");
-  const drawable = ["path", "circle", "rect", "ellipse", "polygon", "polyline", "line"];
+  const drawable = ["path", "circle", "rect", "ellipse", "polygon", "polyline", "line", "use"];
 
   [root, ...nodes].forEach(node => {
     const tag = node.tagName ? node.tagName.toLowerCase() : "";
-    const fill = node.getAttribute("fill");
+    if (!drawable.includes(tag)) return;
 
-    if (fill && fill !== "none") {
-      node.setAttribute("fill", color);
-    } else if (!fill && drawable.includes(tag)) {
-      node.setAttribute("fill", color);
-    }
-
-    const stroke = node.getAttribute("stroke");
-    if (stroke && stroke !== "none") {
-      node.setAttribute("stroke", color);
-    }
-
+    node.setAttribute("fill", color);
+    node.removeAttribute("stroke");
     if (node.style) {
-      if (node.style.fill) node.style.fill = "";
-      if (node.style.stroke) node.style.stroke = "";
+      node.style.setProperty("fill", color, "important");
+      node.style.removeProperty("stroke");
     }
   });
 }
@@ -570,6 +568,11 @@ async function drawPoints(category) {
     });
     pointsLayer.appendChild(group);
 
+    // Прозрачный круг-хитбокс — всегда есть, независимо от того,
+    // загрузилась ли картинка. У иконок стоит pointer-events:none,
+    // поэтому без этого круга наведение мышью на них не работало бы.
+    group.appendChild(el("circle", { r: radius, fill: "transparent" }));
+
     // Пытаемся показать картинку продукта, перекрашенную в цвет БЖУ.
     // Цветной круг рисуется только если картинку показать не удалось.
     const svgText = svgMap[d.name] ? await loadSVG(svgMap[d.name]) : null;
@@ -591,6 +594,24 @@ async function drawPoints(category) {
           icon.setAttribute("style", "pointer-events:none;");
           tintIcon(icon, getColor(d));
           group.appendChild(icon);
+
+          // Разные SVG-файлы иконок имеют разные внутренние поля вокруг
+          // рисунка, из-за чего одни продукты выглядели мельче других.
+          // Подгоняем viewBox под реальные границы рисунка, чтобы все
+          // иконки визуально занимали одинаковую площадь.
+          try {
+            const bbox = icon.getBBox();
+            if (bbox.width > 0 && bbox.height > 0) {
+              const pad = Math.max(bbox.width, bbox.height) * 0.08;
+              icon.setAttribute(
+                "viewBox",
+                `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`
+              );
+            }
+          } catch (bboxErr) {
+            // getBBox недоступен в некоторых средах — оставляем исходный viewBox
+          }
+
           iconOk = true;
         }
       } catch (e) {
