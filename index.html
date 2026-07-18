@@ -492,6 +492,30 @@ function getColor(d) {
 
 /* ------------ РЕНДЕР ТОЧЕК ------------ */
 const tooltip = document.querySelector(".tooltip");
+
+const TOOLTIP_MAX_WIDTH = 320;
+const TOOLTIP_MIN_WIDTH = 160;
+const TOOLTIP_EDGE_MARGIN = 20;
+
+// Позиционирует тултип и решает, переносить ли строки: если места
+// справа от курсора не хватает под обычную ширину — тултип сужается
+// и переносит текст, вместо того чтобы вылезать за край страницы
+// и вызывать горизонтальную прокрутку.
+function positionTooltip(event) {
+  const viewportWidth = document.documentElement.clientWidth;
+  const availableRight = viewportWidth - event.pageX - 14 - TOOLTIP_EDGE_MARGIN;
+
+  if (availableRight < TOOLTIP_MAX_WIDTH) {
+    tooltip.style.whiteSpace = "normal";
+    tooltip.style.maxWidth = Math.max(TOOLTIP_MIN_WIDTH, availableRight) + "px";
+  } else {
+    tooltip.style.whiteSpace = "nowrap";
+    tooltip.style.maxWidth = TOOLTIP_MAX_WIDTH + "px";
+  }
+
+  tooltip.style.left = (event.pageX + 14) + "px";
+  tooltip.style.top = (event.pageY - 40) + "px";
+}
 const svgCache = {};
 const pointsLayer = el("g");
 g.appendChild(pointsLayer);
@@ -694,13 +718,11 @@ async function drawPoints(category) {
         <span class="muted">Калории:</span> ${d.kcal} ккал<br>
         <span class="muted">Сахар:</span> ${d.sugar} г &nbsp; <span class="muted">Клетчатка:</span> ${d.fiber} г<br>
         <span class="muted">Б:</span> ${d.b} г &nbsp; <span class="muted">Ж:</span> ${d.j} г &nbsp; <span class="muted">У:</span> ${d.u} г`;
-      tooltip.style.left = (event.pageX + 14) + "px";
-      tooltip.style.top = (event.pageY - 40) + "px";
+      positionTooltip(event);
     });
 
     group.addEventListener("mousemove", (event) => {
-      tooltip.style.left = (event.pageX + 14) + "px";
-      tooltip.style.top = (event.pageY - 40) + "px";
+      positionTooltip(event);
     });
 
     group.addEventListener("mouseleave", () => {
