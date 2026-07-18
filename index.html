@@ -508,9 +508,38 @@ async function loadSVG(url) {
 // "контурными" иконками (fill:none + только обводка) — они тоже
 // становятся сплошными, как остальные.
 function tintIcon(root, color) {
-  // Встроенные <style> внутри SVG могут перебивать наши атрибуты —
-  // проще их полностью убрать.
-  root.querySelectorAll("style").forEach(s => s.remove());
+  // Сначала разбираем встроенные <style>, чтобы найти по-настоящему
+  // скрытые элементы (display:none — частый служебный "guide"-элемент
+  // при экспорте из Illustrator) и убрать именно их, а не сделать
+  // их видимыми, удалив стиль раньше времени.
+  const styleTags = root.querySelectorAll("style");
+  const hiddenClasses = new Set();
+
+  styleTags.forEach(styleTag => {
+    const css = styleTag.textContent || "";
+    const ruleRe = /\.([\w-]+)\s*\{([^}]*)\}/g;
+    let m;
+    while ((m = ruleRe.exec(css))) {
+      const className = m[1];
+      const body = m[2];
+      if (/display\s*:\s*none/i.test(body)) {
+        hiddenClasses.add(className);
+      }
+    }
+  });
+
+  if (hiddenClasses.size) {
+    root.querySelectorAll("[class]").forEach(node => {
+      const classes = (node.getAttribute("class") || "").split(/\s+/);
+      if (classes.some(c => hiddenClasses.has(c))) {
+        node.remove();
+      }
+    });
+  }
+
+  // Встроенные <style> больше не нужны и могут перебивать наши цвета
+  // (например, через классы с fill), поэтому убираем их целиком.
+  styleTags.forEach(s => s.remove());
 
   const nodes = root.querySelectorAll("*");
   const drawable = ["path", "circle", "rect", "ellipse", "polygon", "polyline", "line", "use"];
