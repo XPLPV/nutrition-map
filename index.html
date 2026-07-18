@@ -643,15 +643,22 @@ async function drawPoints(category) {
 
           // Разные SVG-файлы иконок имеют разные внутренние поля вокруг
           // рисунка, из-за чего одни продукты выглядели мельче других.
-          // Подгоняем viewBox под реальные границы рисунка, чтобы все
-          // иконки визуально занимали одинаковую площадь.
+          // Подгоняем viewBox под реальные границы рисунка — но не просто
+          // по bbox (для вытянутых продуктов вроде банана или огурца это
+          // всё равно давало бы более мелкую картинку из-за "meet"),
+          // а по "характерному размеру" (геометрическое среднее ширины
+          // и высоты) — так все иконки визуально занимают одинаковую
+          // площадь, независимо от формы.
           try {
             const bbox = icon.getBBox();
             if (bbox.width > 0 && bbox.height > 0) {
-              const pad = Math.max(bbox.width, bbox.height) * 0.08;
+              const cx = bbox.x + bbox.width / 2;
+              const cy = bbox.y + bbox.height / 2;
+              const characteristicSize = Math.sqrt(bbox.width * bbox.height);
+              const side = characteristicSize * 1.75;
               icon.setAttribute(
                 "viewBox",
-                `${bbox.x - pad} ${bbox.y - pad} ${bbox.width + pad * 2} ${bbox.height + pad * 2}`
+                `${cx - side / 2} ${cy - side / 2} ${side} ${side}`
               );
             }
           } catch (bboxErr) {
