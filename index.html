@@ -40,9 +40,19 @@
 
   #controls {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 10px;
     margin-bottom: 30px;
+  }
+
+  @media (max-width: 420px) {
+    #controls {
+      gap: 6px;
+    }
+    .filter-btn {
+      padding: 8px 12px;
+      font-size: 13px;
+    }
   }
 
   .filter-btn {
@@ -90,7 +100,8 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     opacity: 0;
     transition: opacity 0.15s ease;
-    max-width: 240px;
+    max-width: 320px;
+    white-space: nowrap;
     text-align: left;
     z-index: 10;
   }
